@@ -257,6 +257,55 @@ def _recogn_models(idx):
     return FASTER_MODEL_NAMES, True
 
 
+DOWNLOAD_DIR = f"{ROOT_DIR}/output/_downloads"
+# Netscape-format cookies exported from a browser; Douyin requires fresh cookies
+COOKIES_FILE = "/config/cookies.txt"
+
+
+def _download_video(url, progress=None):
+    """Download a video from a share link with yt-dlp and hand it to the video input."""
+    import re
+    import gradio as gr
+
+    url = (url or "").strip()
+    m = re.search(r"https?://\S+", url)  # share texts often wrap the link in other words
+    if not m:
+        raise gr.Error(tr("Paste a video link first"))
+    url = m.group(0)
+    try:
+        import yt_dlp
+    except ImportError:
+        raise gr.Error("yt-dlp is not installed in this image")
+
+    Path(DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    opts = {
+        "outtmpl": f"{DOWNLOAD_DIR}/%(extractor)s_%(id)s.%(ext)s",
+        # Prefer a single mp4 with audio; merge separate streams if that's all there is
+        "format": "b[ext=mp4][vcodec!=none][acodec!=none]/bv*[height<=1920]+ba/b",
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "noprogress": True,
+    }
+    if Path(COOKIES_FILE).is_file():
+        opts["cookiefile"] = COOKIES_FILE
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            path = info.get("requested_downloads", [{}])[0].get("filepath") or ydl.prepare_filename(info)
+    except Exception as e:
+        msg = str(e)
+        if "cookies" in msg.lower():
+            msg += f"\n\nExport browser cookies for this site (Netscape format) to data/config/cookies.txt on the server, then retry."
+        raise gr.Error(msg[:600])
+    if not Path(path).is_file():
+        raise gr.Error(f"Download finished but file not found: {path}")
+    title = (info.get("title") or "").strip()
+    log = f"Downloaded {info.get('extractor_key', '')} {info.get('id', '')} ({int(info.get('duration') or 0)}s)\n{title[:200]}"
+    return path, log
+
+
 def _format_rate(v):
     return f"+{v}%" if v >= 0 else f"{v}%"
 
@@ -1045,6 +1094,13 @@ def build_ui():
                 with gr.Row():
                     with gr.Column(scale=3, elem_classes="form-col"):
                         gr.Markdown(tr("Video"), elem_classes="section-title")
+                        with gr.Row(equal_height=True):
+                            video_url = gr.Textbox(
+                                label=tr("Video link"),
+                                placeholder="https://www.tiktok.com/@user/video/... · douyin.com · youtube.com/shorts/...",
+                                scale=5,
+                            )
+                            fetch_btn = gr.Button(tr("Fetch"), scale=1, min_width=100, elem_id="fetch-btn")
                         input_file = gr.Video(
                             label=tr("Select Video File"), interactive=True
                         )
@@ -1245,6 +1301,17 @@ def build_ui():
                             label=tr("Execution Log"), lines=10, max_lines=10,
                             interactive=False, elem_classes="log-box"
                         )
+
+                fetch_btn.click(
+                    fn=_download_video,
+                    inputs=[video_url],
+                    outputs=[input_file, log_output],
+                )
+                video_url.submit(
+                    fn=_download_video,
+                    inputs=[video_url],
+                    outputs=[input_file, log_output],
+                )
 
                 # 渠道验证并更新模型列表
                 def validate_recogn(choice, prev):
@@ -1673,6 +1740,7 @@ footer { display: none !important; }
 .section-title p { margin: 0 !important; font-size: 12px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.08em; color: var(--body-text-color-subdued); }
 .form-col > .section-title:first-child { margin-top: 0 !important; }
+#fetch-btn { align-self: end; height: 42px; }
 #start-btn { margin-top: 8px; height: 52px; font-size: 16px; font-weight: 600; }
 .result-col { position: sticky; top: 12px; align-self: flex-start; }
 .log-box textarea { font-family: var(--font-mono) !important; font-size: 12px !important; line-height: 1.5; }

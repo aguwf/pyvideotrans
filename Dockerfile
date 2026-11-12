@@ -59,6 +59,9 @@ RUN if [ "${USE_CUDA}" = "true" ]; then \
     fi && \
     rm -rf /root/.cache/uv /tmp/*
 
+# Downloader for the WebUI "paste a link" box (TikTok, Douyin, YouTube, ...)
+RUN uv pip install --system -U yt-dlp && rm -rf /root/.cache/uv
+
 # Copy application source code
 COPY . .
 
