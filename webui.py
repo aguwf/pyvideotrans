@@ -229,6 +229,34 @@ def _translate_index_from_display(d):
     return 0
 
 
+# OpenAI-compatible STT endpoints we target first (Groq), then OpenAI's own models
+GROQ_STT_MODELS = ["whisper-large-v3", "whisper-large-v3-turbo"]
+
+
+def _recogn_models(idx):
+    """Model choices for an ASR channel; disabled=True means the channel ignores the model."""
+    if idx in [recognition.FASTER_WHISPER, recognition.Faster_Whisper_XXL, recognition.WHISPERX_API]:
+        return constants.WHISPER_MODELS.split(','), False
+    if idx == recognition.OPENAI_WHISPER:
+        return OPENAI_WHISPER_MODELS.split(','), False
+    if idx == recognition.OPENAI_API:
+        saved = [m.strip() for m in str(settings.get('openairecognapi_model', '')).split(',') if m.strip()]
+        return list(dict.fromkeys(GROQ_STT_MODELS + saved)), False
+    if idx == recognition.Deepgram:
+        return DEEPGRAM_ASR_MODELS, False
+    if idx == recognition.Whisper_CPP:
+        return constants.WHISPER_CPP_MODELS.split(','), False
+    if idx == recognition.WHISPER_NET:
+        return constants.WHISPER_NET_MODELS.split(','), False
+    if idx == recognition.QWENASR:
+        return ["1.7B", "0.6B"], False
+    if idx == recognition.HUGGINGFACE_ASR:
+        return list(recognition.HUGGINGFACE_ASR_MODELS.keys()), False
+    if idx == recognition.FUNASR_CN:
+        return FUN_ASR_MODELS, False
+    return FASTER_MODEL_NAMES, True
+
+
 def _format_rate(v):
     return f"+{v}%" if v >= 0 else f"{v}%"
 
@@ -1029,11 +1057,13 @@ def build_ui():
                                 label=tr("ASR Channel"),
                                 interactive=True,
                             )
+                            _init_models, _init_disabled = _recogn_models(
+                                _saved_index("recogn_type", DEFAULT_RECOGN, HIDDEN_RECOGN))
                             model_choice = gr.Dropdown(
-                                choices=FASTER_MODEL_NAMES,
-                                value=_user_params.get("model_name", DEFAULT_MODEL),
+                                choices=_init_models,
+                                value=_user_params.get("model_name") if _user_params.get("model_name") in _init_models else _init_models[0],
                                 label=tr("Model"),
-                                interactive=True,
+                                interactive=not _init_disabled,
                             )
 
                         translate_choice = gr.Dropdown(
@@ -1226,31 +1256,7 @@ def build_ui():
                         gr.Warning(msg)
                         return prev, f"⚠️ {msg}", gr.update()
 
-                    # 根据渠道更新模型下拉框
-                    models = []
-                    disabled = False
-                    print(f'{idx=}')
-                    print(f'{recognition.Whisper_CPP=}')
-                    if idx in [recognition.FASTER_WHISPER, recognition.Faster_Whisper_XXL, recognition.WHISPERX_API]:
-                        models = constants.WHISPER_MODELS.split(',')
-                    elif idx == recognition.OPENAI_WHISPER:
-                        models = OPENAI_WHISPER_MODELS.split(',')
-                    elif idx == recognition.Deepgram:
-                        models = DEEPGRAM_ASR_MODELS
-                    elif idx == recognition.Whisper_CPP:
-                        models = constants.WHISPER_CPP_MODELS.split(',')
-                    elif idx == recognition.WHISPER_NET:
-                        models = constants.WHISPER_NET_MODELS.split(',')
-                    elif idx == recognition.QWENASR:
-                        models = ["1.7B", "0.6B"]
-                    elif idx == recognition.HUGGINGFACE_ASR:
-                        models = list(recognition.HUGGINGFACE_ASR_MODELS.keys())
-                    elif idx == recognition.FUNASR_CN:
-                        models = FUN_ASR_MODELS
-                    else:
-                        models = FASTER_MODEL_NAMES
-                        disabled = True
-
+                    models, disabled = _recogn_models(idx)
                     if models:
                         default_val = models[0] if models else ""
                         return (
