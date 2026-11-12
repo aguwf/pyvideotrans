@@ -98,7 +98,8 @@ AUDIOCPP_ASR_MODELS={
 #---------文本模型 字幕翻译模型 =====================================
 GEMINI_MODELS = "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-pro-latest,gemini-flash-latest,gemini-2.5-pro,gemini-2.5-flash"
 BAILIAN_MODELS = "qwen-mt-turbo,qwen-mt-plus,qwen-mt-flash,qwen-mt-lite,qwen3.8-flash,qwen3.8-max,qwen3.7-plus,qwen3.7-flash,qwen3.7-max,qwen3.6-flash,qwen3.5-flash"
-CHATGPT_MODELS = "gpt-5.6-sol,gpt-5.6-luna,gpt-5.5,gpt-5.5-pro,gpt-5.4-pro,gpt-5.4,gpt-5.4-mini,gpt-5,gpt-5-mini"
+# Homelab build: the ChatGPT channel points at OpenCode Go (OpenAI-compatible); translation-strong models first
+CHATGPT_MODELS = "claude-haiku-5-5,qwen3.8-max,glm-5.3,kimi-k3,kimi-k3.1-pro,deepseek-v4-pro,qwen3.8-flash,deepseek-v4.1-flash"
 AZURE_MODELS = "gpt-5.5,gpt-5.4-mini, gpt-5.4-nano, gpt-5.4, gpt-5.4-pro,gpt-5.1, gpt-5.1-chat"
 LOCALLLM_MODELS = "qwen3.6,deepseek-v4-flash"
 ZHIPUAI_MODELS = "glm-5.3,glm-5.2,glm-5.1,glm-5, glm-4.7, glm-4.7-flash, glm-4.6,glm-4.5-flash"

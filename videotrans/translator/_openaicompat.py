@@ -35,8 +35,18 @@ class OpenAICampat(BaseTrans):
         transport (e.g. the LiteLLM channel routes through the litellm SDK)
         while reusing the shared prompt building, parsing and error handling.
         """
-        model = OpenAI(api_key=self.api_key, base_url=self.api_url)
+        model = OpenAI(api_key=self.api_key, base_url=self.api_url, default_headers=self._client_headers())
         return model.chat.completions.create(**kwargs, extra_body=self.extra_body)
+
+    def _client_headers(self) -> dict:
+        """OpenCode Go routes and caches by session: send one stable session id per
+        video task (as OpenCode/pi do per conversation) and identify this client."""
+        if 'opencode.ai' not in (self.api_url or ''):
+            return {}
+        if not getattr(self, '_opencode_session', None):
+            import uuid
+            self._opencode_session = self.uuid or uuid.uuid4().hex
+        return {'x-opencode-session': self._opencode_session, 'x-opencode-client': 'subtitle-studio'}
 
     @retry(retry=retry_if_not_exception_type(NO_RETRY_EXCEPT), stop=(stop_after_attempt(settings.get('retry_nums'))), wait=wait_fixed(2), before=before_log(logger, logging.INFO),after=after_log(logger, logging.INFO))
     def _item_task(self, data: str) -> str:

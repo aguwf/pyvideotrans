@@ -57,7 +57,7 @@ _default = {
     },
     "chatgpt": {
         # openai chatgpt
-        "chatgpt_api": "",
+        "chatgpt_api": "https://opencode.ai/zen/go/v1",
         "chatgpt_key": "",
         "chatgpt_reasoning_effort": "none",
         "chatgpt_max_token": 16384,
