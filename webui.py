@@ -303,17 +303,20 @@ def _add_channel(it,title):
         )
     CHANNEL_SETTINGS[it.name]=tmp
 
+# Only the API channels this build is set up around; the rest stay usable via params.json
+VISIBLE_CHANNEL_WINS = {"openairecognapi", "chatgpt"}
+
 for it in trans_idname.values():
-    if not it.win or it.win in _HAD_WIN:continue
+    if not it.win or it.win in _HAD_WIN or it.win not in VISIBLE_CHANNEL_WINS:continue
     _add_channel(it,tr("Subtitle Translation Channels"))
 
 # print(f'{CHANNEL_SETTINGS=}')
 for it in stt_idname.values():
-    if not it.win or it.win in _HAD_WIN:continue
+    if not it.win or it.win in _HAD_WIN or it.win not in VISIBLE_CHANNEL_WINS:continue
     _add_channel(it,tr("ASR Channels"))
 
 for it in tts_idname.values():
-    if not it.win or it.win in _HAD_WIN:continue
+    if not it.win or it.win in _HAD_WIN or it.win not in VISIBLE_CHANNEL_WINS:continue
     _add_channel(it,tr("TTS Channel"))
 
 # ---------------------------------------------------------------------------
@@ -796,7 +799,7 @@ def build_channel_settings():
                         )
 
         # === 参考音频 Tab ===
-        with gr.Tab(tr("Set Reference Audio")):
+        with gr.Tab(tr("Set Reference Audio"), visible=False):
             gr.Markdown(tr("### Voice Clone Reference Audio Settings"))
             gr.Markdown(
                 tr(
@@ -950,6 +953,15 @@ def _save_section(section_key, keys):
 # 高级选项设置面板（紧凑网格布局）
 # ---------------------------------------------------------------------------
 
+# Advanced options relevant to API transcription + translation + burned-in subtitles
+ADVANCED_KEYS = {
+    'video': ['crf', 'preset', 'video_codec', 'hw_decode'],
+    'whisper': ['llm_resegment', 'max_speech_duration_s', 'hotwords', 'del_end_punc'],
+    'trans': ['aitrans_context', 'aitrans_temperature', 'aitrans_thread'],
+    'justify': ['cjk_len', 'other_len'],
+}
+
+
 def build_advanced_settings():
     import gradio as gr
 
@@ -959,7 +971,7 @@ def build_advanced_settings():
         )
     )
 
-    for k, v in notices.items():
+    for k, v in ADVANCED_KEYS.items():
 
         # ---- 通用设置 ----
         with gr.Accordion(tr(f'{k}_head'), open=True):
@@ -1044,84 +1056,86 @@ def build_ui():
                             interactive=True,
                         )
 
-                        tts_choice = gr.Dropdown(
-                            choices=TTS_CHOICES,
-                            value=TTS_NAMES[_saved_index("tts_type", DEFAULT_TTS, HIDDEN_TTS)],
-                            label=tr("TTS Channel"),
-                            interactive=True,
-                        )
-                        # 根据已加载的TTS渠道和目标语言预填充角色列表
-                        _init_tts_idx = _saved_index("tts_type", DEFAULT_TTS, HIDDEN_TTS)
-                        _init_target = _user_params.get(
-                            "target_language", DEFAULT_TARGET_LANG
-                        )
-                        _init_langcode = (
-                            _lang_code_from_display(_init_target)
-                            if _init_target and _init_target != "-"
-                            else None
-                        )
-                        try:
-                            _init_roles = role_menu(
-                                _init_tts_idx, langcode=_init_langcode
+                        # Dubbing is optional here; collapsed to keep the subtitle workflow short
+                        with gr.Accordion(tr("Dubbing (optional)"), open=False):
+                            tts_choice = gr.Dropdown(
+                                choices=TTS_CHOICES,
+                                value=TTS_NAMES[_saved_index("tts_type", DEFAULT_TTS, HIDDEN_TTS)],
+                                label=tr("TTS Channel"),
+                                interactive=True,
                             )
-                            if not _init_roles:
+                            # 根据已加载的TTS渠道和目标语言预填充角色列表
+                            _init_tts_idx = _saved_index("tts_type", DEFAULT_TTS, HIDDEN_TTS)
+                            _init_target = _user_params.get(
+                                "target_language", DEFAULT_TARGET_LANG
+                            )
+                            _init_langcode = (
+                                _lang_code_from_display(_init_target)
+                                if _init_target and _init_target != "-"
+                                else None
+                            )
+                            try:
+                                _init_roles = role_menu(
+                                    _init_tts_idx, langcode=_init_langcode
+                                )
+                                if not _init_roles:
+                                    _init_roles = ["No"]
+                            except Exception:
                                 _init_roles = ["No"]
-                        except Exception:
-                            _init_roles = ["No"]
-                        _saved_role = _user_params.get("voice_role", "No")
-                        _init_role_val = (
-                            _saved_role
-                            if _saved_role in _init_roles
-                            else _init_roles[0]
-                        )
-                        voice_role = gr.Dropdown(
-                            choices=_init_roles,
-                            value=_init_role_val,
-                            label=tr("Voice Role"),
-                            interactive=True,
-                        )
+                            _saved_role = _user_params.get("voice_role", "No")
+                            _init_role_val = (
+                                _saved_role
+                                if _saved_role in _init_roles
+                                else _init_roles[0]
+                            )
+                            voice_role = gr.Dropdown(
+                                choices=_init_roles,
+                                value=_init_role_val,
+                                label=tr("Voice Role"),
+                                interactive=True,
+                            )
 
-                        with gr.Row():
-                            voice_autorate = gr.Checkbox(
-                                label=tr("Audio Speedup"), value=True
-                            )
-                            video_autorate = gr.Checkbox(
-                                label=tr("Video Slowdown"), value=False
-                            )
-                        with gr.Row():
-                            voice_rate = gr.Slider(
-                                minimum=-50,
-                                maximum=50,
-                                value=int(
-                                    str(_user_params.get("voice_rate", "0")).replace(
-                                        "%", ""
-                                    )
-                                ),
-                                step=1,
-                                label=tr("Voice Speed (%)"),
-                            )
-                            volume_rate = gr.Slider(
-                                minimum=-95,
-                                maximum=100,
-                                value=int(
-                                    str(_user_params.get("volume", "0")).replace(
-                                        "%", ""
-                                    )
-                                ),
-                                step=1,
-                                label=tr("Volume (%)"),
-                            )
-                            pitch_rate = gr.Slider(
-                                minimum=-100,
-                                maximum=100,
-                                value=int(
-                                    str(_user_params.get("pitch", "0")).replace(
-                                        "Hz", ""
-                                    )
-                                ),
-                                step=1,
-                                label=tr("Pitch (Hz)"),
-                            )
+                            with gr.Row():
+                                voice_autorate = gr.Checkbox(
+                                    label=tr("Audio Speedup"), value=True
+                                )
+                                video_autorate = gr.Checkbox(
+                                    label=tr("Video Slowdown"), value=False
+                                )
+                            with gr.Row():
+                                voice_rate = gr.Slider(
+                                    minimum=-50,
+                                    maximum=50,
+                                    value=int(
+                                        str(_user_params.get("voice_rate", "0")).replace(
+                                            "%", ""
+                                        )
+                                    ),
+                                    step=1,
+                                    label=tr("Voice Speed (%)"),
+                                )
+                                volume_rate = gr.Slider(
+                                    minimum=-95,
+                                    maximum=100,
+                                    value=int(
+                                        str(_user_params.get("volume", "0")).replace(
+                                            "%", ""
+                                        )
+                                    ),
+                                    step=1,
+                                    label=tr("Volume (%)"),
+                                )
+                                pitch_rate = gr.Slider(
+                                    minimum=-100,
+                                    maximum=100,
+                                    value=int(
+                                        str(_user_params.get("pitch", "0")).replace(
+                                            "Hz", ""
+                                        )
+                                    ),
+                                    step=1,
+                                    label=tr("Pitch (Hz)"),
+                                )
                         subtitle_type = gr.Dropdown(
                             choices=list(SUBTITLE_TYPES.keys()),
                             value=list(SUBTITLE_TYPES.keys())[
@@ -1175,7 +1189,7 @@ def build_ui():
                                 )
 
                         cuda_accel = gr.Checkbox(
-                            label=tr("Enable CUDA Acceleration"), value=False
+                            label=tr("Enable CUDA Acceleration"), value=False, visible=False
                         )
                         channel_warning = gr.Markdown("", visible=False)
 
