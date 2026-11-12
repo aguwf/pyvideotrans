@@ -994,17 +994,17 @@ def build_advanced_settings():
 def build_ui():
     import gradio as gr
 
-    with gr.Blocks(title="pyVideoTrans WebUI") as app:
-        gr.Markdown(
-            tr("""
-# pyVideoTrans Video Translation WebUI
-> [This interface only implements partial features. For full features, please use the desktop app (sp.exe or sp.py)](https://pyvideotrans.com)
->
->  [Documentation](https://pyvideotrans.com) |
->  [Open Source](https://github.com/jianchang512/pyvideotrans) |
->  [Help & Issues](https://bbs.pyvideotrans.com)
-----
-        """)
+    with gr.Blocks(title="Subtitle Studio") as app:
+        gr.HTML(
+            """
+<div class="hero">
+  <div class="hero-mark">CC</div>
+  <div>
+    <h1>Subtitle Studio</h1>
+    <p>Transcribe, translate and burn subtitles into short videos.</p>
+  </div>
+</div>
+"""
         )
 
         with gr.Tabs():
@@ -1015,23 +1015,26 @@ def build_ui():
                 prev_tts = gr.State(value=TTS_NAMES[DEFAULT_TTS])
 
                 with gr.Row():
-                    with gr.Column(scale=3):
+                    with gr.Column(scale=3, elem_classes="form-col"):
+                        gr.Markdown(tr("Video"), elem_classes="section-title")
                         input_file = gr.Video(
                             label=tr("Select Video File"), interactive=True
                         )
 
-                        recogn_choice = gr.Dropdown(
-                            choices=RECOGN_CHOICES,
-                            value=RECOGN_NAMES[_saved_index("recogn_type", DEFAULT_RECOGN, HIDDEN_RECOGN)],
-                            label=tr("ASR Channel"),
-                            interactive=True,
-                        )
-                        model_choice = gr.Dropdown(
-                            choices=FASTER_MODEL_NAMES,
-                            value=_user_params.get("model_name", DEFAULT_MODEL),
-                            label=tr("Model"),
-                            interactive=True,
-                        )
+                        gr.Markdown(tr("Pipeline"), elem_classes="section-title")
+                        with gr.Row():
+                            recogn_choice = gr.Dropdown(
+                                choices=RECOGN_CHOICES,
+                                value=RECOGN_NAMES[_saved_index("recogn_type", DEFAULT_RECOGN, HIDDEN_RECOGN)],
+                                label=tr("ASR Channel"),
+                                interactive=True,
+                            )
+                            model_choice = gr.Dropdown(
+                                choices=FASTER_MODEL_NAMES,
+                                value=_user_params.get("model_name", DEFAULT_MODEL),
+                                label=tr("Model"),
+                                interactive=True,
+                            )
 
                         translate_choice = gr.Dropdown(
                             choices=TRANSLATE_CHOICES,
@@ -1039,22 +1042,24 @@ def build_ui():
                             label=tr("Translation Channel"),
                             interactive=True,
                         )
-                        source_lang = gr.Dropdown(
-                            choices=LANG_CHOICES,
-                            value=_lang_code_from_display(
-                                _user_params.get("source_language", DEFAULT_SOURCE_LANG)
-                            ),
-                            label=tr("Source Language"),
-                            interactive=True,
-                        )
-                        target_lang = gr.Dropdown(
-                            choices=[("-", "-")] + LANG_CHOICES,
-                            value=_lang_code_from_display(
-                                _user_params.get("target_language", DEFAULT_TARGET_LANG)
-                            ),
-                            label=tr("Target Language"),
-                            interactive=True,
-                        )
+                        gr.Markdown(tr("Languages"), elem_classes="section-title")
+                        with gr.Row():
+                            source_lang = gr.Dropdown(
+                                choices=LANG_CHOICES,
+                                value=_lang_code_from_display(
+                                    _user_params.get("source_language", DEFAULT_SOURCE_LANG)
+                                ),
+                                label=tr("Source Language"),
+                                interactive=True,
+                            )
+                            target_lang = gr.Dropdown(
+                                choices=[("-", "-")] + LANG_CHOICES,
+                                value=_lang_code_from_display(
+                                    _user_params.get("target_language", DEFAULT_TARGET_LANG)
+                                ),
+                                label=tr("Target Language"),
+                                interactive=True,
+                            )
 
                         # Dubbing is optional here; collapsed to keep the subtitle workflow short
                         with gr.Accordion(tr("Dubbing (optional)"), open=False):
@@ -1136,6 +1141,7 @@ def build_ui():
                                     step=1,
                                     label=tr("Pitch (Hz)"),
                                 )
+                        gr.Markdown(tr("Subtitles"), elem_classes="section-title")
                         subtitle_type = gr.Dropdown(
                             choices=list(SUBTITLE_TYPES.keys()),
                             value=list(SUBTITLE_TYPES.keys())[
@@ -1194,18 +1200,20 @@ def build_ui():
                         channel_warning = gr.Markdown("", visible=False)
 
                         start_btn = gr.Button(
-                            tr("Start"), variant="primary", size="lg"
+                            tr("Start"), variant="primary", size="lg", elem_id="start-btn"
                         )
 
-                    with gr.Column(scale=2):
-                        log_output = gr.Textbox(
-                            label=tr("Execution Log"), lines=20, interactive=False
-                        )
+                    with gr.Column(scale=2, elem_classes="result-col"):
+                        gr.Markdown(tr("Result"), elem_classes="section-title")
                         video_preview = gr.Video(
-                            label=tr("Video Preview"), interactive=False
+                            label=tr("Video Preview"), interactive=False, height=520
                         )
                         result_files = gr.File(
                             label=tr("Output Files (Click to Download)"), interactive=False
+                        )
+                        log_output = gr.Textbox(
+                            label=tr("Execution Log"), lines=10, max_lines=10,
+                            interactive=False, elem_classes="log-box"
                         )
 
                 # 渠道验证并更新模型列表
@@ -1607,6 +1615,65 @@ def build_ui():
     return app
 
 
+def _build_theme():
+    import gradio as gr
+
+    return gr.themes.Base(
+        primary_hue=gr.themes.colors.indigo,
+        secondary_hue=gr.themes.colors.slate,
+        neutral_hue=gr.themes.colors.zinc,
+        radius_size=gr.themes.sizes.radius_lg,
+        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        font_mono=["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+    ).set(
+        body_background_fill="*neutral_50",
+        body_background_fill_dark="*neutral_950",
+        block_background_fill="white",
+        block_background_fill_dark="*neutral_900",
+        block_border_width="1px",
+        block_border_color="*neutral_200",
+        block_border_color_dark="*neutral_800",
+        block_shadow="0 1px 2px rgba(0,0,0,0.04)",
+        block_label_background_fill="transparent",
+        block_label_background_fill_dark="transparent",
+        block_label_border_width="0px",
+        block_label_text_color="*neutral_500",
+        block_label_text_color_dark="*neutral_400",
+        block_label_text_size="*text_sm",
+        block_label_text_weight="500",
+        block_title_text_weight="500",
+        input_background_fill="*neutral_50",
+        input_background_fill_dark="*neutral_950",
+        input_border_color="*neutral_200",
+        input_border_color_dark="*neutral_800",
+        button_primary_background_fill="*primary_600",
+        button_primary_background_fill_hover="*primary_500",
+        button_primary_text_color="white",
+        button_large_radius="*radius_lg",
+        layout_gap="12px",
+    )
+
+
+APP_CSS = """
+.gradio-container { width: 100% !important; max-width: 1280px !important; margin: 0 auto !important; padding: 0 16px !important; }
+.gradio-container .main { max-width: none !important; }
+footer { display: none !important; }
+.hero { display: flex; align-items: center; gap: 14px; padding: 20px 4px 8px; }
+.hero h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.01em; }
+.hero p { margin: 2px 0 0; color: var(--body-text-color-subdued); font-size: 14px; }
+.hero-mark { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--color-accent); color: white; font-weight: 700; font-size: 14px; letter-spacing: 0.04em; }
+.section-title { margin: 14px 0 0 !important; overflow: visible !important; padding: 0 !important; }
+.section-title p { margin: 0 !important; font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--body-text-color-subdued); }
+.form-col > .section-title:first-child { margin-top: 0 !important; }
+#start-btn { margin-top: 8px; height: 52px; font-size: 16px; font-weight: 600; }
+.result-col { position: sticky; top: 12px; align-self: flex-start; }
+.log-box textarea { font-family: var(--font-mono) !important; font-size: 12px !important; line-height: 1.5; }
+.tab-nav button, button[role="tab"] { font-weight: 500; }
+"""
+
+
 if __name__ == "__main__":
     try:
         import argparse
@@ -1619,22 +1686,15 @@ if __name__ == "__main__":
             "--share", action="store_true", help="Create a public Gradio link"
         )
         args = parser.parse_args()
+        APP_THEME = _build_theme()
         app = build_ui()
         app.launch(
             server_name=args.host,
             server_port=args.port,
             share=args.share,
             inbrowser=True,
-            theme=gr.themes.Soft(),
-            css="""
-        *, *::before, *::after {
-            font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "WenQuanYi Micro Hei", "Noto Sans CJK SC", "Source Han Sans SC", "SimHei", sans-serif !important;
-        }
-        h1{text-align:center}
-        input, textarea, select, button, label, .gr-textbox, .gr-dropdown, .gr-checkbox {
-            font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "WenQuanYi Micro Hei", "Noto Sans CJK SC", "Source Han Sans SC", "SimHei", sans-serif !important;
-        }
-    """,
+            theme=APP_THEME,
+            css=APP_CSS,
         )
     except Exception as e:
         import traceback
