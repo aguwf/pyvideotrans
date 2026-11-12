@@ -86,6 +86,17 @@ class OpenaiAPIRecogn(BaseRecogn):
         return raws
 
     def _thrid_api(self)->Union[List[SrtItem], None]:
+        # Whole-file request with word timestamps (Groq supports verbose_json + word granularity):
+        # one call instead of one per VAD chunk, and cue timing follows the actual speech.
+        if 'groq.com' in self.api_url:
+            try:
+                cues = self._whole_file_words()
+                if cues:
+                    return cues
+            except StopTask:
+                raise
+            except Exception as e:
+                logger.warning(f'[openairecognapi] whole-file word timestamps failed, falling back to VAD chunks: {e}')
         # 发送请求
         raws = self.cut_audio()
         client = OpenAI(
@@ -109,6 +120,81 @@ class OpenaiAPIRecogn(BaseRecogn):
             if self.asr_wait>0:
                 time.sleep(self.asr_wait)
         return raws
+
+    # Groq's upload cap is ~25MB; 16kHz mono at 48kbps is ~0.36MB/min, so this covers ~1h
+    MAX_UPLOAD_BYTES = 24 * 1024 * 1024
+
+    def _whole_file_words(self) -> Union[List[SrtItem], None]:
+        mp3_tmp = config.TEMP_DIR + f'/recogn_whole{time.time()}.mp3'
+        runffmpeg(["-y", "-i", Path(self.audio_file).as_posix(), "-ac", "1", "-ar", "16000", "-b:a", "48k", mp3_tmp])
+        if not Path(mp3_tmp).is_file() or Path(mp3_tmp).stat().st_size > self.MAX_UPLOAD_BYTES:
+            return None
+        client = OpenAI(
+            api_key=params.get('openairecognapi_key', ''),
+            base_url=self.api_url,
+            http_client=httpx.Client(proxy=self.proxy_str or None)
+        )
+        lang = self.detect_language.split('-')[0] if self.detect_language and self.detect_language != 'auto' else None
+        kwargs = dict(
+            file=(os.path.basename(mp3_tmp), Path(mp3_tmp).read_bytes()),
+            model=self.model_name,
+            response_format="verbose_json",
+            timestamp_granularities=["word", "segment"],
+        )
+        if lang:
+            kwargs['language'] = lang
+        if params.get('openairecognapi_prompt', ''):
+            kwargs['prompt'] = params.get('openairecognapi_prompt', '')
+        transcript = client.audio.transcriptions.create(**kwargs)
+        data = transcript if isinstance(transcript, dict) else transcript.model_dump()
+        words = [w for w in (data.get('words') or []) if str(w.get('word', '')).strip()]
+        if not words:
+            return None
+        cjk = (lang or data.get('language', '') or '')[:2] in ('zh', 'ja', 'ko', 'yu') or \
+              str(data.get('language', '')).lower() in ('chinese', 'japanese', 'korean', 'cantonese')
+        sentences = self._group_words(words, joiner='' if cjk else ' ')
+        logger.debug(f'[openairecognapi] whole-file: {len(words)} words -> {len(sentences)} sentences')
+        out = []
+        for i, (start, end, text) in enumerate(sentences, 1):
+            start_ms, end_ms = int(start * 1000), int(end * 1000)
+            startraw, endraw = ms_to_time_string(ms=start_ms), ms_to_time_string(ms=end_ms)
+            out.append(SrtItem(line=i, text=text, start_time=start_ms, end_time=end_ms,
+                               startraw=startraw, endraw=endraw, time=f'{startraw} --> {endraw}'))
+        return out
+
+    @staticmethod
+    def _group_words(words, joiner=' ', max_gap=0.7, max_duration=8.0, max_chars=110):
+        """Group timed words into sentence-sized cues: these are the translation units.
+
+        A cue ends at sentence punctuation, at a pause, or when it grows too long (preferring
+        a comma). Display splitting into two-line chunks happens later, after translation.
+        """
+        sentences, cur = [], []
+
+        def flush():
+            if cur:
+                text = joiner.join(str(w['word']).strip() for w in cur)
+                text = re.sub(r'\s+([,.!?;:%])', r'\1', text).strip()
+                sentences.append((float(cur[0]['start']), float(cur[-1]['end']), text))
+                cur.clear()
+
+        for w in words:
+            token = str(w['word']).strip()
+            if cur:
+                gap = float(w['start']) - float(cur[-1]['end'])
+                length = sum(len(str(x['word']).strip()) + len(joiner) for x in cur)
+                too_long = float(w['end']) - float(cur[0]['start']) > max_duration or length + len(token) > max_chars
+                if gap >= max_gap or too_long:
+                    flush()
+            cur.append(w)
+            if re.search(r'[.!?。！？…]["\'”’)]?$', token):
+                flush()
+            elif re.search(r'[,;:，；、]$', token):
+                length = sum(len(str(x['word']).strip()) + len(joiner) for x in cur)
+                if length > max_chars * 0.6 or float(cur[-1]['end']) - float(cur[0]['start']) > max_duration * 0.6:
+                    flush()
+        flush()
+        return sentences
 
     def _diarize(self)->Union[List[SrtItem], None]:
         client = OpenAI(
