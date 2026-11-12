@@ -12,6 +12,7 @@ from videotrans import translator
 from videotrans.configure.config import tr, app_cfg, settings, logger
 from videotrans.configure.excepts import VideoTransError, FFmpegError
 from videotrans.util.help_ffmpeg import get_video_codec, get_audio_time, runffmpeg, get_video_duration
+from videotrans.util._ffmpeg_hwcodec import find_vaapi_device
 from videotrans.util.help_misc import vail_file, read_last_n_lines, is_novoice_mp4
 
 
@@ -375,8 +376,7 @@ class AssembleMixin:
 
         if hw_type in ['qsv', 'amf', 'vaapi']:
             if os_name == 'Linux':
-                devices = glob.glob('/dev/dri/renderD*')
-                device = devices[0] if devices else '/dev/dri/renderD128'
+                device = find_vaapi_device()
                 if settings.get('hw_decode'):
                     global_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
                     vf_string = f"[0:v]hwdownload,format=nv12,subtitles=filename='{subtitles_file}',format=nv12,hwupload[v_out]"
@@ -386,7 +386,7 @@ class AssembleMixin:
                     ]
                     vf_string = f"[0:v]subtitles=filename='{subtitles_file}',format=nv12,hwupload[v_out]"
                 vcodec = "h264_vaapi" if codec == '264' else "hevc_vaapi"
-                enc_args = ['-qp', _crf, '-preset', PRESET_MAP.get('vaapi').get(_preset, 'medium')]
+                enc_args = ['-qp', _crf]
                 return global_args, vf_string, vcodec, enc_args
 
             if hw_type in ['qsv']:

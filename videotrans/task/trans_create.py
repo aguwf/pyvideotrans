@@ -168,7 +168,7 @@ class TransCreate(
                 _msg.append(tr('Target language under(Bilingual)') if self.cfg.output_srt == 1 else tr(
                     'Target language up(Bilingual)'))
         else:
-            _msg.append(f'{tr("Standard Function Mode")} {"批量模式" if self.cfg.batch else "单视频模式"}')
+            _msg.append(f'{tr("Standard Function Mode")} {"batch mode" if self.cfg.batch else "single-video mode"}')
             batch_num = int(float(settings.get('batch_nums', 0)))
             if self.cfg.batch and batch_num > 0:
                 _msg.append(f'{tr("batch_nums_title")}:{batch_num}')

@@ -62,7 +62,7 @@ def show_error(tb_str):
     # 添加一个标准的“OK”按钮
     ok_button = msg_box.addButton(QtWidgets.QMessageBox.StandardButton.Ok)
     if defaulelang == 'zh_CN':
-        ok_button.setText("知道了")
+        ok_button.setText("Got it")
 
     # 添加自定义的“报告错误”按钮
     report_button = msg_box.addButton(tr("Report Error"), QtWidgets.QMessageBox.ButtonRole.NoRole)
@@ -484,7 +484,7 @@ def is_connect_hf()->bool:
         return False
     else:
         os.environ['HF_ENDPOINT'] = 'https://huggingface.co'
-        logger.debug('可以使用 huggingface.co')
+        logger.debug('huggingface.co is reachable')
         return True
 
 def show_refaudio_win():

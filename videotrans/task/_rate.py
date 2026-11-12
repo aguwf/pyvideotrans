@@ -356,7 +356,7 @@ class SpeedRate:
         if not self.queue_tts:
             return []
         if not self.should_audiorate and not self.should_videorate:
-            logger.debug("未选中任何变速，进入普通拼接模式。")
+            logger.debug("No speed adjustment selected; using plain concatenation.")
             self._run_no_rate_change_mode()
             return self.queue_tts
 
@@ -479,7 +479,7 @@ class SpeedRate:
 
 
             # 仅视频慢速 或 两者都选中
-            mode_log = "[仅视频慢速]" if not self.should_audiorate and self.should_videorate else "[音频加速+视频慢速]"
+            mode_log = "[video slowdown only]" if not self.should_audiorate and self.should_videorate else "[audio speedup + video slowdown]"
             if dubb_duration <= source_duration:
                 mode_log+=f": 字幕{i} 可用区间: {source_duration}ms, 配音时长: {dubb_duration}ms, [无需变速]"
             else:
@@ -601,7 +601,7 @@ class SpeedRate:
                 logger.error(f"[Video-Concat] 忽略无效片段: {clip=}")
 
         if valid_cnt == 0:
-            logger.error("[Video-Concat] 没有有效片段，跳过拼接")
+            logger.error("[Video-Concat] No valid segments; skipping concatenation")
             return
 
         concat_list = Path(self.cache_folder, "video_concat.txt").as_posix()
@@ -787,7 +787,7 @@ class SpeedRate:
                 
             logger.debug(f"音频片段连接后，实际时长 {_last_len}ms, 已生成到: {self.target_audio}")
         else:
-            logger.error("音频片段连接失败")
+            logger.error("Failed to concatenate audio segments")
             _last_len = 0
         return _last_len  # 返回音频长度 ms
 
@@ -801,12 +801,12 @@ class TtsSpeedRate(SpeedRate):
 
     def run(self):
         if not self.should_audiorate:
-            logger.debug("[SpeedRate] 未启用变速，进入普通拼接模式。")
+            logger.debug("[SpeedRate] Speed adjustment off; using plain concatenation.")
             self._run_no_rate_change_mode()
             return self.queue_tts
         # 删除时间轴不合法的
         self.queue_tts = [it for it in self.queue_tts if it['end_time'] - it['start_time'] > 0]
-        logger.debug("[SpeedRate] 启用变速，进入对齐模式。")
+        logger.debug("[SpeedRate] Speed adjustment on; using alignment mode.")
         # 1. 预处理
         self._prepare_data()
         # 2. 计算
@@ -866,7 +866,7 @@ class TtsSpeedRate(SpeedRate):
                 f"[Calc] Mode={mode_log} Line={it['line']} | Source_duration={source_dur} Dubb_duration={dubb_dur} -> TargetA={audio_target}")
 
     def _concat_audio_aligned(self):
-        logger.debug("[Audio] 开始对齐拼接...")
+        logger.debug("[Audio] Aligning and concatenating...")
 
         audio_concat_list = []
 

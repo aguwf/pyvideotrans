@@ -17,14 +17,12 @@ def normalize_locale(value):
     return {
         "fr": "fr_FR",
         "fr-FR": "fr_FR",
-        "zh": "zh_CN",
-        "zh-CN": "zh_CN",
         "en": "en_US",
         "en-US": "en_US",
     }.get(value, value)
 
 
-# 合并 webui 翻译字典和sp翻译字典
+# Merge the WebUI catalog over the shared desktop catalog
 @cache
 def _load_catalog(locale):
     from videotrans.configure.config import ROOT_DIR
@@ -41,13 +39,13 @@ def _load_catalog(locale):
             pass
     if path_sp.is_file():
         try:
-            sp_langobj = json.loads(path.read_text(encoding="utf-8"))
+            sp_langobj = json.loads(path_sp.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
     return sp_langobj|webui_langobj
 
 
-WEBUI_LOCALE = normalize_locale(os.environ.get("PYVIDEOTRANS_LANG", "zh_CN"))
+WEBUI_LOCALE = normalize_locale(os.environ.get("PYVIDEOTRANS_LANG", "en_US"))
 _CATALOG = _load_catalog(WEBUI_LOCALE)
 
 

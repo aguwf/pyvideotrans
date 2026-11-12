@@ -28,16 +28,19 @@ ENV FONTCONFIG_PATH=/etc/fonts
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    fontconfig fonts-noto-cjk fonts-liberation fonts-dejavu wget \
+# Distro ffmpeg (built with VA-API) + Intel media driver from non-free so the
+# iGPU can encode burned-in subtitles; the static ffmpeg build has no VA-API.
+RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
+    apt-get update && apt-get install -y --no-install-recommends \
+    fontconfig fonts-noto-core fonts-noto-cjk fonts-liberation fonts-dejavu wget \
     xz-utils git libglib2.0-0 libgl1 libsm6 libxext6 libxrender-dev \
     libxkbcommon-x11-0 libdbus-1-3 libsndfile1 python3-dev rubberband-cli libsndfile1-dev \
-    && wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
-    && tar -Jxf ffmpeg-release-amd64-static.tar.xz \
-    && cp ffmpeg-*-static/ffmpeg /usr/local/bin/ \
-    && cp ffmpeg-*-static/ffprobe /usr/local/bin/ \
-    && rm -rf ffmpeg-* \
+    ffmpeg vainfo \
+    && (apt-get install -y --no-install-recommends intel-media-va-driver-non-free || \
+        apt-get install -y --no-install-recommends intel-media-va-driver) \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV LIBVA_DRIVER_NAME=iHD
 
 # Copy dependency specification files first for Docker layer caching
 COPY pyproject.toml uv.lock .python-version* ./

@@ -10,6 +10,23 @@ from videotrans.configure.config import ROOT_DIR, app_cfg, settings, logger
 from videotrans.configure import config
 
 
+def find_vaapi_device() -> str:
+    """Return the render node of the Intel/AMD GPU.
+
+    renderD* numbering depends on probe order, so with an NVIDIA card present the
+    iGPU is not necessarily renderD128. Pick the node bound to a VA-API capable driver.
+    """
+    nodes = sorted(Path('/sys/class/drm').glob('renderD*'))
+    for node in nodes:
+        try:
+            driver = (node / 'device' / 'driver').resolve().name
+        except OSError:
+            continue
+        if driver in ('i915', 'xe', 'amdgpu', 'radeon') and Path(f'/dev/dri/{node.name}').exists():
+            return f'/dev/dri/{node.name}'
+    return f'/dev/dri/{nodes[0].name}' if nodes else '/dev/dri/renderD128'
+
+
 def check_hw_on_start(force=False):
     get_video_codec(264,force)
     get_video_codec(265,force)
@@ -33,7 +50,7 @@ def get_video_codec(compat=None,force=False) -> str:
         try:
             video_codec_pref = int(settings.get('video_codec', 264))
         except (ValueError, TypeError):
-            logger.warning("配置中 'video_codec' 无效。将默认使用 H.264 (264)。")
+            logger.warning("Invalid 'video_codec' setting; defaulting to H.264 (264).")
             video_codec_pref = 264
 
     cache_key = f'{plat}-{video_codec_pref}'
@@ -54,6 +71,7 @@ def get_video_codec(compat=None,force=False) -> str:
     try:
         test_input_file = Path(ROOT_DIR) / "videotrans/styles/no-remove.mp4"
         temp_dir = Path(config.TEMP_DIR)
+        temp_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         _bak_codec = _codec_cache[cache_key] if _codec_cache and cache_key in _codec_cache else  default_codec
         logger.warning(f"准备测试{compat}硬件编码器时出错: {e}。将使用缓存编码器或软件编码 {_bak_codec}。")
@@ -65,11 +83,19 @@ def get_video_codec(compat=None,force=False) -> str:
     def test_encoder_internal(encoder_to_test: str, timeout: int = 20) -> bool:
         timestamp = int(time.time() * 1000)
         output_file = temp_dir / f"test_{encoder_to_test}_{timestamp}.mp4"
-        command = [
-            "ffmpeg", "-y", "-hide_banner",
-            "-t", "1", "-i", str(test_input_file),
-            "-c:v", encoder_to_test, "-f", "mp4", str(output_file)
-        ]
+        if encoder_to_test.endswith('_vaapi'):
+            # VA-API encoders need a device and frames uploaded to it
+            command = [
+                "ffmpeg", "-y", "-hide_banner", "-vaapi_device", find_vaapi_device(),
+                "-t", "1", "-i", str(test_input_file), "-vf", "format=nv12,hwupload",
+                "-c:v", encoder_to_test, "-f", "mp4", str(output_file)
+            ]
+        else:
+            command = [
+                "ffmpeg", "-y", "-hide_banner",
+                "-t", "1", "-i", str(test_input_file),
+                "-c:v", encoder_to_test, "-f", "mp4", str(output_file)
+            ]
         creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
 
         logger.debug(f"正在测试编码器是否可用: {encoder_to_test}...")
@@ -83,7 +109,7 @@ def get_video_codec(compat=None,force=False) -> str:
             logger.debug(f"硬件编码器 '{encoder_to_test}' 可用。")
             success = True
         except FileNotFoundError:
-            logger.error("'ffmpeg' 命令在 PATH 中未找到。无法进行编码器测试。")
+            logger.error("'ffmpeg' not found in PATH; cannot test encoders.")
             raise
         except subprocess.CalledProcessError:
             logger.warning(f"硬件编码器 '{encoder_to_test}' 不可用")
@@ -116,9 +142,13 @@ def get_video_codec(compat=None,force=False) -> str:
             update_cache=True
             for encoder_suffix in encoders_to_test:
                 if encoder_suffix == 'nvenc':
-                    import torch
-                    if not torch.cuda.is_available():
-                        logger.debug("CUDA 不可用，跳过 nvenc 测试。")
+                    try:
+                        import torch
+                        cuda_ok = torch.cuda.is_available()
+                    except ImportError:
+                        cuda_ok = False
+                    if not cuda_ok:
+                        logger.debug("CUDA unavailable; skipping nvenc test.")
                         continue
 
                 full_encoder_name = f"{h_prefix}_{encoder_suffix}"
@@ -130,7 +160,8 @@ def get_video_codec(compat=None,force=False) -> str:
                 update_cache=False
                 selected_codec = _codec_cache[cache_key] if _codec_cache and cache_key in _codec_cache else  default_codec
                 logger.debug(f"所有硬件加速器均未通过测试。{compat}将使用缓存编码器或软编码: {selected_codec}")
-            if update_cache or not _codec_cache:
+            # Only persist a positive result, so a transient failure doesn't pin software encoding
+            if update_cache:
                 _codec_cache[cache_key] = selected_codec
                 Path(f"{ROOT_DIR}/videotrans/codec.json").write_text(json.dumps(_codec_cache))
         except Exception as e:

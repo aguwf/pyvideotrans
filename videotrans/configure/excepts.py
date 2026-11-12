@@ -131,7 +131,7 @@ NO_RETRY_EXCEPT = (
 #         )
 #     elif "ProxyError" in error_str:
 #         base_message = (
-#             "代理设置不正确或代理不可用，请检查代理或关闭代理并删掉代理文本框中所填内容" if lang == 'zh'
+#             "Proxy is misconfigured or unreachable. Check it, or disable it and clear the proxy field." if lang == 'zh'
 #             else "The proxy address is not available, please check"
 #         )
 #
@@ -248,11 +248,11 @@ def get_msg_from_except(ex:BaseException)->str:
         ),
 
         (ProxyError, aiohttp.client_exceptions.ClientProxyConnectionError): lambda e: (
-            "代理设置不正确或代理不可用，请检查代理或关闭代理并删掉代理文本框中所填内容" if lang == 'zh'
+            "Proxy is misconfigured or unreachable. Check it, or disable it and clear the proxy field." if lang == 'zh'
             else "Proxy configuration issue, check settings or disable proxy"
         ),
         SSLError: lambda e: (
-            "安全连接失败，请检查系统时间或网络设置，如果使用了代理，请关闭后重试" if lang == 'zh'
+            "Secure connection failed. Check the system clock and network; if using a proxy, disable it and retry." if lang == 'zh'
             else "Secure connection failed, check system time or network settings"
         ),
 
@@ -336,7 +336,7 @@ def get_msg_from_except(ex:BaseException)->str:
         ),
 
         BrokenPipeError: lambda e: (
-            "连接管道损坏，请检查网络连接" if lang == 'zh'
+            "Connection pipe broken; check the network connection" if lang == 'zh'
             else "Broken pipe error, check network connection"
         ),
     }

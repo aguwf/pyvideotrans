@@ -107,9 +107,9 @@ class OpenAICampat(BaseTrans):
 
     def llm_segment(self, srt_list,step='')->List[SrtItem]:
         _st=time.time()
-        flag="LLM纠错"
+        flag="LLM correction"
         if not step and settings.get('llm_resegment'):
-            flag="LLM重新断句替换LLM纠错"
+            flag="LLM re-segmentation (replaces LLM correction)"
             prompts_template = Path(f'{ROOT_DIR}/videotrans/prompts/resegment/llm_re.txt').read_text(encoding='utf-8').replace('{max_speech_s}',str(settings.get('max_speech_duration_s',5)))
         else:
             prompts_template = Path(f'{ROOT_DIR}/videotrans/prompts/resegment/llm.txt').read_text(encoding='utf-8')
@@ -174,5 +174,5 @@ class OpenAICampat(BaseTrans):
                 it['startraw'] = ms_to_time_string(ms=it['start_time'])
                 it['endraw'] = ms_to_time_string(ms=it['end_time'])
                 it["time"] = f"{it['startraw']} --> {it['endraw']}"
-        logger.debug(f'{"【二次识别后】"  if step else ""} {flag},原始字幕行:{len(srt_list)}, 新字幕行:{len(_srtlist)}, 用时:{time.time()-_st}s')
+        logger.debug(f'{"[after second pass]"  if step else ""} {flag},原始字幕行:{len(srt_list)}, 新字幕行:{len(_srtlist)}, 用时:{time.time()-_st}s')
         return _srtlist

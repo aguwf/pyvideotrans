@@ -29,7 +29,7 @@ The output must be a clean, dubbing-ready SRT file where every block strictly ma
    - Due to natural speech pauses, single sentences are often split across multiple blocks.
    - **Local Translation Only**: Translate ONLY the words physically present inside each isolated block.
    - **Do NOT Shift Grammar**: Do NOT shift nouns, verbs, or objects from Block 1 to Block 2 (or vice-versa) to satisfy {lang} grammar.
-   - **Punctuation Bridging**: If an input block ends mid-clause, end its translation with an ellipsis (`...`). If the next block continues it, start that translation with an ellipsis (`...`). This keeps the fragments aligned and signals the TTS engine to sustain pitch.
+   - **No Ellipsis Bridging**: These are on-screen subtitles. Do NOT add ellipses (`...`) to mark a sentence continuing across blocks; leave the fragment without trailing punctuation instead.
 
 2. **TTS DURATION & AGGRESSIVE COMPRESSION**:
    - The translated text will be converted to audio via TTS. If the line is too long, the voice will sound rushed and desync from the video.

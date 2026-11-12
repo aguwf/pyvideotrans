@@ -16,14 +16,14 @@ from videotrans.util.help_ffmpeg import runffmpeg,get_audio_time
 from videotrans.util._srt_parse import ms_to_time_string
 
 _error = {
-    "20000003": "静音音频",
+    "20000003": "Silent audio",
 
-    "45000001": "请求参数缺失必需字段 / 字段值无效",
-    "45000002": "空音频",
-    "45000151": "音频格式不正确",
+    "45000001": "Missing required request field / invalid field value",
+    "45000002": "Empty audio",
+    "45000151": "Invalid audio format",
 
-    "550XXXX": "服务内部处理错误",
-    "55000031": "服务器繁忙"
+    "550XXXX": "Internal service error",
+    "55000031": "Server busy"
 }
 
 @dataclass(repr=False)
@@ -105,7 +105,7 @@ class ZijieRecogn(BaseRecogn):
             if not code:
                 raise SpeechToTextError(f"未知错误:{response.text=},{response.headers=}")
             if str(code) != "20000000":
-                raise SpeechToTextError(_error.get(str(code), '未知错误'))
+                raise SpeechToTextError(_error.get(str(code), 'Unknown error'))
 
             res = response.json()
             seg_list = res.get('result', {}).get('utterances')

@@ -22,7 +22,7 @@ def _reject_unsafe_ffmpeg_cmd(custom_params):
         if token in _FFMPEG_CMD_FORBIDDEN_FLAGS or "://" in token:
             raise ValueError(
                 f"自定义ffmpeg命令参数包含不允许的内容: {token!r}。"
-                " 该字段不能用于指定新的输入/输出源或网络协议 (Custom ffmpeg command"
+                " This field cannot specify new input/output sources or network protocols (Custom ffmpeg command"
                 " arguments may not introduce a new input/output source or network protocol)."
             )
 

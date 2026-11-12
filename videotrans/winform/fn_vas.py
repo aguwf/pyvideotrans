@@ -6,6 +6,7 @@ import sys
 
 from videotrans.configure.excepts import FFmpegError
 from videotrans.util._ffmpeg_hwcodec import get_video_codec
+from videotrans.util._ffmpeg_hwcodec import find_vaapi_device
 from videotrans.winform import get_win
 
 
@@ -142,8 +143,7 @@ def openwin():
 
             if hw_type in ['qsv', 'amf', 'vaapi']:
                 if os_name == 'Linux':
-                    devices = glob.glob('/dev/dri/renderD*')
-                    device = devices[0] if devices else '/dev/dri/renderD128'
+                    device = find_vaapi_device()
                     if settings.get('hw_decode'):
                         global_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format',
                                        'vaapi']
@@ -154,7 +154,7 @@ def openwin():
                         ]
                         vf_string = f"[0:v]subtitles=filename='{subtitles_file}',format=nv12,hwupload[v_out]"
                     vcodec = "h264_vaapi"
-                    enc_args = ['-qp', _crf, '-preset', PRESET_MAP.get('vaapi').get(_preset, 'fast')]
+                    enc_args = ['-qp', _crf]
                     return global_args, vf_string, vcodec, enc_args
 
                 if hw_type in ['qsv']:

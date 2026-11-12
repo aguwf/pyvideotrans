@@ -6,7 +6,48 @@ from videotrans.configure.config import ROOT_DIR, logger
 from videotrans.util._srt_parse import get_subtitle_from_srt
 
 
-def set_ass_font(srtfile: str) -> str:
+def auto_layout(width: int, height: int) -> dict:
+    """Subtitle geometry scaled to the video, used when no custom ass.json is saved.
+
+    ffmpeg's SRT->ASS default (PlayRes 384x288, 16pt, margin 10) is far too large on
+    vertical video and sits under the TikTok/Reels/Shorts caption and button overlay.
+    """
+    short = min(width, height)
+    vertical = height > width
+    fontsize = round(short * 0.066)
+    margin_lr = round(width * 0.07)
+    return {
+        'fontsize': fontsize,
+        'outline': max(2, round(fontsize * 0.1)),
+        'shadow': max(1, round(fontsize * 0.04)),
+        'margin_lr': margin_lr,
+        # Lift above the bottom overlay on short-form platforms
+        'margin_v': round(height * (0.2 if vertical else 0.07)),
+        # Approximate characters per line at this size (bold sans, Latin ~0.55em)
+        'chars_per_line': max(12, int((width - 2 * margin_lr) / (fontsize * 0.55))),
+        'cjk_chars_per_line': max(6, int((width - 2 * margin_lr) / fontsize)),
+    }
+
+
+def _apply_auto_style(ass_file_path: str, width: int, height: int) -> None:
+    lay = auto_layout(width, height)
+    fs, out, sh = lay['fontsize'], lay['outline'], lay['shadow']
+    m, mv = lay['margin_lr'], lay['margin_v']
+    styles = (
+        f"Style: Default,Noto Sans,{fs},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,"
+        f"-1,0,0,0,100,100,0,0,1,{out},{sh},2,{m},{m},{mv},1\n"
+        f"Style: Bottom,Noto Sans,{round(fs * 0.8)},&H0000F0FF,&H00FFFFFF,&H00000000,&H80000000,"
+        f"-1,0,0,0,100,100,0,0,1,{out},{sh},2,{m},{m},{mv},1\n"
+    )
+    content = Path(ass_file_path).read_text(encoding='utf-8-sig')
+    content = re.sub(r'^PlayResX:.*$', f'PlayResX: {width}', content, flags=re.M)
+    content = re.sub(r'^PlayResY:.*$', f'PlayResY: {height}', content, flags=re.M)
+    content = re.sub(r'^(Format: Name,[^\n]*\n)(?:Style:[^\n]*\n)+', lambda mt: mt.group(1) + styles, content,
+                     count=1, flags=re.M)
+    Path(ass_file_path).write_text(content, encoding='utf-8')
+
+
+def set_ass_font(srtfile: str, video_size: tuple = None) -> str:
     from . import help_ffmpeg
     """
     Convert SRT to ASS with custom styles:
@@ -32,7 +73,12 @@ def set_ass_font(srtfile: str) -> str:
 
     JSON_FILE = f'{ROOT_DIR}/videotrans/ass.json'
     if not os.path.exists(JSON_FILE):
-        logger.debug(f"[set_ass_font] 未修改硬字幕样式，跳过样式替换")
+        if video_size and video_size[0] and video_size[1]:
+            try:
+                _apply_auto_style(ass_file_path, int(video_size[0]), int(video_size[1]))
+                logger.debug(f"[set_ass_font] no ass.json; applied auto style for {video_size}")
+            except Exception as e:
+                logger.exception(f"[set_ass_font] auto style failed: {e}", exc_info=True)
         return ass_file_path
 
     try:

@@ -107,7 +107,7 @@ class BaseTTS(BaseCon):
         except RuntimeError as e:
             logger.warning(f'TTS 线程运行时发生错误: {e}')
             if 'Event loop' in str(e):
-                logger.warning("捕获到 'Event loop is closed' 错误，这通常是关闭时序问题。")
+                logger.warning("Caught 'Event loop is closed'; usually a shutdown-ordering issue.")
             else:
                 raise
 

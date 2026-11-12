@@ -77,7 +77,7 @@ class RecognMixin:
             raise SpeechToTextError(self.cfg.basename + tr('recogn result is empty'))
 
         if self.cfg.app_mode=='tiqu' and not self.should_trans and self.cfg.fix_punc==2:
-            logger.debug('仅提取不翻译模式下，移除所有标点')
+            logger.debug('Transcribe-only mode: removing all punctuation')
             for it in raw_subtitles:
                 it['text'] = delete_punc(it['text'])
 
@@ -102,7 +102,7 @@ class RecognMixin:
                             it['text'] = it['text'].replace('，', ',').replace('。', '. ').replace('？', '?').replace('！','!')
                     self._save_srt_target(self.source_srt_list, self.cfg.source_sub)
                 else:
-                    logger.error('标点恢复出错了，跳过')
+                    logger.error('Punctuation restoration failed; skipping')
             except Exception as e:
                 logger.exception(f'标点恢复失败，跳过 {e}', exc_info=True)
 
@@ -167,14 +167,14 @@ class RecognMixin:
             )
             if self._exit(): return
             if not raw_subtitles:
-                logger.error('二次识别出错：' + tr('recogn result is empty'))
+                logger.error('Second-pass recognition failed: ' + tr('recogn result is empty'))
                 return
 
             if self.cfg.rephrase:
                 raw_subtitles=self._llmpost(raw_subtitles,'2')
 
             if self.cfg.fix_punc==2:
-                logger.debug('二次识别后，移除所有标点')
+                logger.debug('After second-pass recognition: removing all punctuation')
                 for it in raw_subtitles:
                     it['text']=delete_punc(it['text'])
             self._save_srt_target(raw_subtitles, outsrt_file)
@@ -184,7 +184,7 @@ class RecognMixin:
                 return
             shutil.copy2(outsrt_file, os.path.normpath(self.cfg.target_sub))
             self.signal(text='STT 2 pass end')
-            logger.debug('二次识别成功完成')
+            logger.debug('Second-pass recognition completed')
         except Exception as e:
             logger.exception(f'二次识别配音音频生成字幕时失败，静默跳过 {e}', exc_info=True)
             return

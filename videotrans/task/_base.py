@@ -224,10 +224,10 @@ class BaseTask(BaseCon):
                                          is_cuda=self.cfg.is_cuda and speaker_type != 'built', kwargs=kw)
 
             if _rs:
-                logger.debug('分离说话人成功完成')
+                logger.debug('Speaker diarization completed')
                 shutil.copy2(self.cfg.cache_folder + "/speaker.json", os.path.normpath(self.cfg.target_dir + "/speaker.json"))
             else:
-                logger.error('分离失败说话人失败')
+                logger.error('Speaker diarization failed')
             self.signal(text=tr('separating speakers end'))
         except Exception as e:
             logger.exception(f'说话人分离失败，跳过 {e}', exc_info=True)

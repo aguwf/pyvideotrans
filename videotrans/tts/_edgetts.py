@@ -215,13 +215,13 @@ class EdgeTTS(BaseTTS):
                 timeout=total_tasks * SAVE_TIMEOUT * 2  # 总任务 * 每个超时 * 2（缓冲）
             )
         except asyncio.TimeoutError:
-            logger.error("整体执行超时！强制取消所有任务。")
+            logger.error("Overall timeout! Cancelling all tasks.")
             _control_obj._stop_event.set()
             done, pending = await asyncio.wait([all_workers_done, monitor_task], return_when=asyncio.ALL_COMPLETED)
 
         try:
             if monitor_task not in done:
-                logger.debug("所有配音任务结束。")
+                logger.debug("All dubbing tasks finished.")
                 monitor_task.cancel()
 
             watchdog_task.cancel()
@@ -249,7 +249,7 @@ class EdgeTTS(BaseTTS):
                 else:
                     err += 1
             if ok == 0:
-                logger.debug('本次配音全部失败')
+                logger.debug('All dubbing in this run failed')
                 raise DubbingSrtError(f'{tr("Dubbing failed")}:{self.error}\n{all_voices=}')
 
             if ok > 0:

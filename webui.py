@@ -106,11 +106,33 @@ LANGNAME_DICT: dict = translator.LANGNAME_DICT
 # 可选渠道索引
 # ---------------------------------------------------------------------------
 SELECTABLE_RECOGN = {0, 1, 2, 3, 4}
-DEFAULT_RECOGN = 0
+DEFAULT_RECOGN = recognition.OPENAI_API
 SELECTABLE_TRANSLATE = {0, 1, 2}
-DEFAULT_TRANSLATE = 0
+DEFAULT_TRANSLATE = translator.CHATGPT_INDEX
 SELECTABLE_TTS = {0, 1, 3, 4, 5, 6, 7, 31}
-DEFAULT_TTS = 0
+DEFAULT_TTS = tts.EDGE_TTS
+
+# Homelab build: CPU-only server, so channels that run models locally or need a
+# self-hosted companion service are hidden. IDs stay stable for saved params.
+HIDDEN_RECOGN = set(range(recognition.OPENAI_API)) | {
+    recognition.Faster_Whisper_XXL, recognition.WHISPERX_API, recognition.PARAKEET,
+    recognition.STT_API, recognition.WHISPER_NET,
+}
+HIDDEN_TRANSLATE = {
+    translator.M2M100_INDEX, translator.HYMT2_INDEX, translator.LOCALLLM_INDEX,
+    translator.DEEPLX_INDEX, translator.LIBRE_INDEX, translator.LITELLM_INDEX,
+}
+HIDDEN_TTS = set(range(tts.QWEN3LOCAL_TTS, tts.DOUBAO2_TTS)) | {
+    tts.CHATTTS, tts.SPARK_TTS, tts.KOKORO_TTS, tts.FISHTTS, tts.CLONE_VOICE_TTS,
+}
+RECOGN_CHOICES = [n for i, n in enumerate(RECOGN_NAMES) if i not in HIDDEN_RECOGN]
+TRANSLATE_CHOICES = [n for i, n in enumerate(TRANSLATE_NAMES) if i not in HIDDEN_TRANSLATE]
+TTS_CHOICES = [n for i, n in enumerate(TTS_NAMES) if i not in HIDDEN_TTS]
+
+
+def _saved_index(key, default, hidden):
+    v = str(_user_params.get(key, ""))
+    return int(v) if v.isdigit() and int(v) not in hidden else default
 
 FASTER_MODEL_NAMES = list(FASTER_MODELS_DICT.keys())
 DEFAULT_MODEL = (
@@ -987,12 +1009,8 @@ def build_ui():
                         )
 
                         recogn_choice = gr.Dropdown(
-                            choices=RECOGN_NAMES,
-                            value=RECOGN_NAMES[
-                                int(_user_params.get("recogn_type", DEFAULT_RECOGN))
-                                if str(_user_params.get("recogn_type", "")).isdigit()
-                                else DEFAULT_RECOGN
-                            ],
+                            choices=RECOGN_CHOICES,
+                            value=RECOGN_NAMES[_saved_index("recogn_type", DEFAULT_RECOGN, HIDDEN_RECOGN)],
                             label=tr("ASR Channel"),
                             interactive=True,
                         )
@@ -1004,16 +1022,8 @@ def build_ui():
                         )
 
                         translate_choice = gr.Dropdown(
-                            choices=TRANSLATE_NAMES,
-                            value=TRANSLATE_NAMES[
-                                int(
-                                    _user_params.get(
-                                        "translate_type", DEFAULT_TRANSLATE
-                                    )
-                                )
-                                if str(_user_params.get("translate_type", "")).isdigit()
-                                else DEFAULT_TRANSLATE
-                            ],
+                            choices=TRANSLATE_CHOICES,
+                            value=TRANSLATE_NAMES[_saved_index("translate_type", DEFAULT_TRANSLATE, HIDDEN_TRANSLATE)],
                             label=tr("Translation Channel"),
                             interactive=True,
                         )
@@ -1035,21 +1045,13 @@ def build_ui():
                         )
 
                         tts_choice = gr.Dropdown(
-                            choices=TTS_NAMES,
-                            value=TTS_NAMES[
-                                int(_user_params.get("tts_type", DEFAULT_TTS))
-                                if str(_user_params.get("tts_type", "")).isdigit()
-                                else DEFAULT_TTS
-                            ],
+                            choices=TTS_CHOICES,
+                            value=TTS_NAMES[_saved_index("tts_type", DEFAULT_TTS, HIDDEN_TTS)],
                             label=tr("TTS Channel"),
                             interactive=True,
                         )
                         # 根据已加载的TTS渠道和目标语言预填充角色列表
-                        _init_tts_idx = (
-                            int(_user_params.get("tts_type", DEFAULT_TTS))
-                            if str(_user_params.get("tts_type", "")).isdigit()
-                            else DEFAULT_TTS
-                        )
+                        _init_tts_idx = _saved_index("tts_type", DEFAULT_TTS, HIDDEN_TTS)
                         _init_target = _user_params.get(
                             "target_language", DEFAULT_TARGET_LANG
                         )

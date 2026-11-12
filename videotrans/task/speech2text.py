@@ -120,7 +120,7 @@ class SpeechToText(BaseTask):
 
         # 需要降噪
         if self.cfg.remove_noise:
-            logger.debug('开始降噪')
+            logger.debug('Starting noise reduction')
             try:
                 from videotrans.process.prepare_audio import remove_noise
                 title = tr('Starting to process speech noise reduction, which may take a long time, please be patient')
@@ -178,7 +178,7 @@ class SpeechToText(BaseTask):
                                 '！', '!')
                     self._save_srt_target(self.source_srt_list, self.cfg.target_sub)
                 else:
-                    logger.error('标点恢复出错')
+                    logger.error('Punctuation restoration failed')
             except Exception as e:
                 logger.exception(f'恢复标点出错，跳过{e}', exc_info=True)
 
